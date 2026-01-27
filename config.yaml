@@ -1,0 +1,38 @@
+# Random Traffic Consumer - Network Bandwidth Stability Testing Tool
+# Configuration file
+
+# Download target URLs (CDN resources from lolicp.com for testing)
+urls:
+  - "https://res.wx.qq.com/open/zh_CN/htmledition/res/dev/download/sdk/WeChatSDK1.7.5.zip"
+
+# Download settings
+download:
+  workers: 4                 # Number of concurrent worker goroutines
+  timeout: 5s                # Per-request timeout (increased for large files)
+  retry: 3                   # Number of retries on failure
+  chunk_size: 0              # 0 = complete download, >0 = chunked download in bytes
+  stagger_start:             # Staggered worker startup to prevent connection burst
+    enabled: true            # Enable staggered startup (default: false)
+    base_delay: 1s           # Base delay between worker starts (default: 200ms)
+    jitter: 500ms            # Random jitter to add/subtract from base delay (default: 50ms)
+
+# Stop condition configuration
+stop:
+  mode: traffic               # Options: duration, traffic, both
+  duration: 1m                # Run for 5 minutes (adjust as needed)
+  traffic_limit: "1500 MB"    # 500 GB (for mode: traffic or both)
+
+# Bandwidth limiting (optional)
+bandwidth_limit:
+  enabled: true              # Enable bandwidth limiting
+  limit: "100 Mbps"          # Maximum download speed
+
+# HTTP client settings
+http:
+  max_idle_conns: 100        # Maximum idle connections
+  idle_conn_timeout: 90s     # Idle connection timeout
+  disable_keepalive: false   # Disable HTTP keep-alive
+
+# Output settings
+output:
+  refresh_interval: 1s      # Console refresh interval

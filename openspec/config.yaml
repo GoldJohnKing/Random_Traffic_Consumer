@@ -8,6 +8,9 @@ schema: spec-driven
 #     Tech stack: TypeScript, React, Node.js
 #     We use conventional commits
 #     Domain: e-commerce platform
+context: |
+  Tech stack: Go
+  Build command: go build -o random-traffic-consumer.exe .
 
 # Per-artifact rules (optional)
 # Add custom rules for specific artifacts.

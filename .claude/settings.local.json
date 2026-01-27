@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(openspec list:*)",
+      "Bash(openspec new:*)",
+      "Bash(openspec status:*)",
+      "Bash(openspec instructions proposal:*)",
+      "Bash(openspec:*)",
+      "Bash(go mod init:*)",
+      "Bash(go get:*)",
+      "Bash(go mod tidy:*)",
+      "Bash(go build:*)",
+      "Bash(go doc:*)",
+      "Bash(ls:*)",
+      "Bash(go run:*)",
+      "Bash(timeout:*)",
+      "WebSearch",
+      "Bash(./random-traffic-consumer.exe:*)",
+      "Bash(gh:*)"
+    ]
+  }
+}
