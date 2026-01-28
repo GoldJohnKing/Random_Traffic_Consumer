@@ -4,15 +4,27 @@
 # Download target URLs (CDN resources from lolicp.com for testing)
 urls:
   - "https://res.wx.qq.com/open/zh_CN/htmledition/res/dev/download/sdk/WeChatSDK1.7.5.zip"
+  - "https://yun.mcloud.139.com/mCloudPc/v832/mCloud_Setup-001.exe"
+  - "https://yun.mcloud.139.com/mCloudPc/v811/mCloud_Setup-001.exe"
+  - "https://x19.gdl.netease.com/MCLauncherTool_0.1.4.50447.exe"
+  - "https://sta-op.douyucdn.cn/dyadmin-ext/pkg/pc/DY_OBS_Studio_Ext/20221208103446325/DYOBSStudioExtension_1.0.2.3.exe"
+  - "https://picture.xianniu.com/pc/download/4.7.3.5/xianniusetup.4.7.3.5.exe"
+  - "https://yun.mcloud.139.com/hongseyunpan/2.43G.zip"
+  - "https://res.wx.qq.com/wxdoc/dist/assets/media/aes-sample.eae1f364.zip"
+  - "https://s1.hdslb.com/bfs/game-static/web/caster/static/script/vue/da3f37d7fd8339357ed671a94941757e/st.zip"
+  - "https://s3.hdslb.com/bfs/game-static/web/caster/static/script/vue/da3f37d7fd8339357ed671a94941757e/st.zip"
+  - "https://imeres.baidu.com/imeres/ime-res/guanwang/img/Ubuntu_Deepin-fcitx-baidupinyin-64.zip"
+  - "https://cnbj0.fds.api.xiaomi.com/miio.files/commonfile_zip_a348bd8c21030ba605d47331d4eb4663.zip"
+  - "https://activity.hdslb.com/blackboard/static/20210604/4d40bc4f98f94fbc71c235832ce3efd4/hJEhL6jGOY.zip"
 
 # Download settings
 download:
-  workers: 4                 # Number of concurrent worker goroutines
+  workers: 8                 # Number of concurrent worker goroutines
   timeout: 5s                # Per-request timeout (increased for large files)
-  retry: 3                   # Number of retries on failure
+  retry: 1                   # Number of retries on failure
   chunk_size: 0              # 0 = complete download, >0 = chunked download in bytes
   stagger_start:             # Staggered worker startup to prevent connection burst
-    enabled: true            # Enable staggered startup (default: false)
+    enabled: false            # Enable staggered startup (default: false)
     base_delay: 1s           # Base delay between worker starts (default: 200ms)
     jitter: 500ms            # Random jitter to add/subtract from base delay (default: 50ms)
 
@@ -20,17 +32,17 @@ download:
 stop:
   mode: traffic               # Options: duration, traffic, both
   duration: 1m                # Run for 5 minutes (adjust as needed)
-  traffic_limit: "1500 MB"    # 500 GB (for mode: traffic or both)
+  traffic_limit: "500 GB"    # 500 GB (for mode: traffic or both)
 
 # Bandwidth limiting (optional)
 bandwidth_limit:
   enabled: true              # Enable bandwidth limiting
-  limit: "100 Mbps"          # Maximum download speed
+  limit: "150 Mbps"          # Maximum download speed
 
 # HTTP client settings
 http:
-  max_idle_conns: 100        # Maximum idle connections
-  idle_conn_timeout: 90s     # Idle connection timeout
+  max_idle_conns: 10        # Maximum idle connections
+  idle_conn_timeout: 15s     # Idle connection timeout
   disable_keepalive: false   # Disable HTTP keep-alive
 
 # Output settings

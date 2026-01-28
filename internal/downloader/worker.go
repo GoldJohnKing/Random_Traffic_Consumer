@@ -6,6 +6,7 @@ import (
 	"io"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"os"
 	"sync"
 	"time"
@@ -17,21 +18,21 @@ import (
 
 // Worker represents a single download worker
 type Worker struct {
-	id      int
-	urls    []string
-	client  *http.Client
-	stats   *stats.Stats
-	limiter *limiter.TokenBucket
-	config  *config.DownloadConfig
-	ctx     context.Context
-	rand    *rand.Rand // Thread-safe random generator
-	mu      sync.Mutex
+	id       int
+	registry *URLRegistry
+	client   *http.Client
+	stats    *stats.Stats
+	limiter  *limiter.TokenBucket
+	config   *config.DownloadConfig
+	ctx      context.Context
+	rand     *rand.Rand // Thread-safe random generator
+	mu       sync.Mutex
 }
 
 // NewWorker creates a new download worker
 func NewWorker(
 	id int,
-	urls []string,
+	registry *URLRegistry,
 	client *http.Client,
 	statsCollector *stats.Stats,
 	limiter *limiter.TokenBucket,
@@ -39,14 +40,14 @@ func NewWorker(
 	ctx context.Context,
 ) *Worker {
 	return &Worker{
-		id:      id,
-		urls:    urls,
-		client:  client,
-		stats:   statsCollector,
-		limiter: limiter,
-		config:  cfg,
-		ctx:     ctx,
-		rand:    rand.New(rand.NewSource(time.Now().UnixNano() + int64(id))),
+		id:       id,
+		registry: registry,
+		client:   client,
+		stats:    statsCollector,
+		limiter:  limiter,
+		config:   cfg,
+		ctx:      ctx,
+		rand:     rand.New(rand.NewSource(time.Now().UnixNano() + int64(id))),
 	}
 }
 
@@ -65,6 +66,11 @@ func (w *Worker) Start(wg *sync.WaitGroup) {
 			default:
 			}
 
+			// Check if URL pool is empty - worker should exit
+			if w.registry.IsEmpty() {
+				return
+			}
+
 			// Perform download
 			w.download()
 		}
@@ -73,8 +79,12 @@ func (w *Worker) Start(wg *sync.WaitGroup) {
 
 // download performs a single download operation
 func (w *Worker) download() {
-	// Select random URL
-	url := w.selectRandomURL()
+	// Select random URL from registry
+	url, err := w.registry.GetRandomURL()
+	if err != nil {
+		// URL pool is empty - worker should exit
+		return
+	}
 
 	// Retry logic
 	for attempt := 0; attempt <= w.config.Retry; attempt++ {
@@ -104,6 +114,8 @@ func (w *Worker) download() {
 				// Final attempt failed - log to stderr for debugging
 				fmt.Fprintf(os.Stderr, "Worker %d: Failed after %d attempts: %v (URL: %s)\n", w.id, attempt+1, err, url)
 				w.stats.RecordError()
+				// Mark URL as failed in registry
+				w.registry.MarkFailed(url)
 			}
 			continue
 		}
@@ -143,13 +155,8 @@ func (w *Worker) fetch(url string) (int64, error) {
 		}
 	}
 
-	// Add headers to mimic a real browser and avoid bot detection
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8")
-	req.Header.Set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
-	req.Header.Set("Accept-Encoding", "gzip, deflate, br")
-	req.Header.Set("Connection", "keep-alive")
-	req.Header.Set("Referer", url)
+	// Set realistic browser headers
+	w.setBrowserHeaders(req, url)
 
 	// Execute request
 	resp, err := w.client.Do(req)
@@ -167,19 +174,6 @@ func (w *Worker) fetch(url string) (int64, error) {
 		return 0, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
-	// Get content length if available
-	contentLength := resp.ContentLength
-
-	// Wait for bandwidth tokens before downloading body
-	if w.limiter != nil && w.limiter.IsEnabled() {
-		if contentLength > 0 {
-			w.limiter.Wait(contentLength)
-		} else {
-			// Unknown size, wait for a reasonable chunk
-			w.limiter.Wait(1024 * 1024) // 1MB
-		}
-	}
-
 	// Download body
 	var bytesDownloaded int64
 	buffer := make([]byte, 32*1024) // 32KB buffer
@@ -187,12 +181,14 @@ func (w *Worker) fetch(url string) (int64, error) {
 	for {
 		n, err := resp.Body.Read(buffer)
 		if n > 0 {
-			bytesDownloaded += int64(n)
-
-			// If we didn't know content length upfront, consume tokens as we read
-			if w.limiter != nil && w.limiter.IsEnabled() && contentLength <= 0 {
-				w.limiter.Wait(int64(n))
+			// Consume tokens for each chunk as we download
+			// This prevents deadlock when multiple workers wait for large amounts of tokens
+			if w.limiter != nil && w.limiter.IsEnabled() {
+				if err := w.limiter.Wait(w.ctx, int64(n)); err != nil {
+					return bytesDownloaded, err
+				}
 			}
+			bytesDownloaded += int64(n)
 		}
 
 		if err != nil {
@@ -218,13 +214,8 @@ func (w *Worker) fetchWithoutRange(url string) (int64, error) {
 		return 0, err
 	}
 
-	// Add headers to mimic a real browser
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8")
-	req.Header.Set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
-	req.Header.Set("Accept-Encoding", "gzip, deflate, br")
-	req.Header.Set("Connection", "keep-alive")
-	req.Header.Set("Referer", url)
+	// Set realistic browser headers
+	w.setBrowserHeaders(req, url)
 
 	resp, err := w.client.Do(req)
 	if err != nil {
@@ -245,7 +236,9 @@ func (w *Worker) fetchWithoutRange(url string) (int64, error) {
 		if n > 0 {
 			bytesDownloaded += int64(n)
 			if w.limiter != nil && w.limiter.IsEnabled() {
-				w.limiter.Wait(int64(n))
+				if err := w.limiter.Wait(w.ctx, int64(n)); err != nil {
+					return bytesDownloaded, err
+				}
 			}
 		}
 
@@ -264,15 +257,30 @@ func (w *Worker) fetchWithoutRange(url string) (int64, error) {
 	return bytesDownloaded, nil
 }
 
-// selectRandomURL selects a random URL from the pool
-func (w *Worker) selectRandomURL() string {
-	w.mu.Lock()
-	defer w.mu.Unlock()
+// setBrowserHeaders sets realistic browser headers on the request
+func (w *Worker) setBrowserHeaders(req *http.Request, targetURL string) {
+	// Parse URL for Referer
+	parsedURL, _ := url.Parse(targetURL)
+	referer := fmt.Sprintf("%s://%s/", parsedURL.Scheme, parsedURL.Host)
 
-	if len(w.urls) == 0 {
-		return ""
-	}
-	return w.urls[w.rand.Intn(len(w.urls))]
+	// Standard headers
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
+	req.Header.Set("Accept", "*/*")
+	req.Header.Set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
+	req.Header.Set("Accept-Encoding", "gzip, deflate, br")
+	req.Header.Set("Referer", referer)
+	req.Header.Set("DNT", "1")
+
+	// Sec-Fetch headers
+	req.Header.Set("Sec-Fetch-Site", "none")
+	req.Header.Set("Sec-Fetch-Mode", "navigate")
+	req.Header.Set("Sec-Fetch-User", "?1")
+	req.Header.Set("Sec-Fetch-Dest", "document")
+
+	// Client Hints
+	req.Header.Set("Sec-Ch-Ua", `"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"`)
+	req.Header.Set("Sec-Ch-Ua-Mobile", "?0")
+	req.Header.Set("Sec-Ch-Ua-Platform", `"Windows"`)
 }
 
 // recoverFromPanic handles panics in the worker goroutine

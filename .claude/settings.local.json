@@ -16,7 +16,13 @@
       "Bash(timeout:*)",
       "WebSearch",
       "Bash(./random-traffic-consumer.exe:*)",
-      "Bash(gh:*)"
+      "Bash(gh:*)",
+      "Bash(git commit:*)",
+      "Bash(go version:*)",
+      "Bash(curl:*)",
+      "Bash(git add:*)",
+      "Bash(git push:*)",
+      "Bash(git reset:*)"
     ]
   }
 }
