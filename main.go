@@ -107,12 +107,15 @@ func main() {
 		}
 	}()
 
-	// Wait for signal or stop condition
+	// Wait for signal, stop condition, or pool exhaustion
 	select {
 	case <-sigChan:
 		fmt.Println("\n\nReceived interrupt signal, shutting down...")
 	case <-stopChan:
 		fmt.Println("\n\nStop condition reached, shutting down...")
+	case <-pool.GetContext().Done():
+		// Pool context cancelled (e.g., all URLs exhausted)
+		// Exit gracefully - workers already shutting down
 	}
 
 	// Cancel context to stop all goroutines

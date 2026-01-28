@@ -16,9 +16,24 @@ The system SHALL implement bandwidth limiting using the token bucket algorithm t
 
 #### Scenario: Consume tokens before download
 - **WHEN** a worker initiates a download of N bytes
-- **THEN** the worker waits until N tokens are available
+- **THEN** the worker calls Wait(context, N) to wait until N tokens are available
+- **AND** Wait() checks the context for cancellation before each retry attempt
+- **AND** if the context is cancelled, Wait() returns the context error immediately
+- **AND** if tokens become available first, Wait() consumes them and returns nil
 - **AND** tokens are consumed before the download proceeds
 - **AND** the actual download speed does not exceed the configured limit
+
+#### Scenario: Worker responds to shutdown while waiting for tokens
+- **WHEN** a worker is waiting for tokens in Wait() and the context is cancelled
+- **THEN** Wait() returns context.Cancelled error immediately
+- **AND** the worker's fetch operation returns with the cancellation error
+- **AND** the worker exits cleanly without blocking indefinitely
+
+#### Scenario: Worker consumes tokens during streaming download
+- **WHEN** a worker downloads a file with unknown content length
+- **THEN** the worker calls Wait(context, chunk_size) for each downloaded chunk
+- **AND** if the context is cancelled during streaming, Wait() returns immediately
+- **AND** the download is aborted with context error
 
 ### Requirement: Bandwidth limit configuration
 The system SHALL use a BandwidthSize type implementing yaml.Unmarshaler for bandwidth limit parsing, using decimal (1000-based) prefixes for Mbps/Kbps/Gbps units.
@@ -79,3 +94,22 @@ The system SHALL track and display current bandwidth utilization relative to the
 - **WHEN** the application starts with bandwidth_limit.limit set to "200 Mbps"
 - **THEN** the startup banner displays "Bandwidth limit: 200.0 Mbps"
 - **AND** the runtime display shows "Limit: 200.00 Mbps"
+
+### Requirement: Cancellable token wait operation
+The system SHALL support cancellation of token wait operations via Go context.
+
+#### Scenario: Wait operation respects context cancellation
+- **WHEN** Wait(context, n) is called and the context is already cancelled
+- **THEN** Wait() returns context.Cancelled immediately without sleeping
+- **AND** no tokens are consumed
+
+#### Scenario: Wait operation with active context
+- **WHEN** Wait(context, n) is called with a non-cancelled context and sufficient tokens
+- **THEN** Wait() consumes n tokens and returns nil
+- **AND** the operation completes in microseconds
+
+#### Scenario: Wait operation with insufficient tokens
+- **WHEN** Wait(context, n) is called with a non-cancelled context but insufficient tokens
+- **THEN** Wait() checks for tokens, sleeps for 10ms, then retries
+- **AND** this repeats until either tokens become available or context is cancelled
+- **AND** if context is cancelled during retry loop, Wait() returns immediately with context error

@@ -1,6 +1,7 @@
 package limiter
 
 import (
+	"context"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -20,28 +21,42 @@ type TokenBucket struct {
 func NewTokenBucket(rateBPS int64, enabled bool) *TokenBucket {
 	tb := &TokenBucket{
 		enabled:   enabled,
-		capacity:  rateBPS, // Capacity equals rate for 1 second burst
-		tokens:    rateBPS, // Start with full bucket
+		capacity:  rateBPS * 5, // Capacity equals 5x rate for better burst handling
+		tokens:    rateBPS * 5, // Start with full bucket
 		rate:      rateBPS,
 		lastRefill: time.Now().UnixNano(),
 	}
 	return tb
 }
 
-// Wait blocks until n tokens are available, then consumes them
-// If the limiter is disabled, this returns immediately
-func (tb *TokenBucket) Wait(n int64) {
+// Wait blocks until n tokens are available, then consumes them.
+// If the limiter is disabled, this returns immediately.
+// If the context is cancelled, returns ctx.Err().
+func (tb *TokenBucket) Wait(ctx context.Context, n int64) error {
 	if !tb.enabled || n <= 0 {
-		return
+		return nil
 	}
 
 	for {
+		// Check for cancellation first
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		// Try to get tokens
 		if tb.tryConsume(n) {
-			return
+			return nil
 		}
-		// Not enough tokens, wait a bit and retry
-		time.Sleep(10 * time.Millisecond)
+
+		// Not enough tokens, wait a bit and retry, but check for cancellation
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(10 * time.Millisecond):
+			// Retry tryConsume
+		}
 	}
 }
 

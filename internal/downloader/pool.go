@@ -17,7 +17,7 @@ import (
 type Pool struct {
 	workers  []*Worker
 	count    int
-	urls     []string
+	registry *URLRegistry
 	client   *http.Client
 	stats    *stats.Stats
 	limiter  *limiter.TokenBucket
@@ -36,9 +36,12 @@ func NewPool(
 ) *Pool {
 	ctx, cancel := context.WithCancel(context.Background())
 
+	// Create URLRegistry with config URLs and retry count
+	registry := NewURLRegistry(cfg.URLs, cfg.Download.Retry, ctx)
+
 	return &Pool{
 		count:    cfg.Download.Workers,
-		urls:     cfg.URLs,
+		registry: registry,
 		client:   httpClient,
 		stats:    statsCollector,
 		limiter:  bwLimiter,
@@ -63,7 +66,7 @@ func (p *Pool) Start() {
 
 		worker := NewWorker(
 			i,
-			p.urls,
+			p.registry,
 			p.client,
 			p.stats,
 			p.limiter,
@@ -75,6 +78,31 @@ func (p *Pool) Start() {
 	}
 
 	fmt.Printf("Started %d workers\n", p.count)
+
+	// Start pool monitor goroutine
+	p.startPoolMonitor()
+}
+
+// startPoolMonitor monitors the URL pool for exhaustion and terminates when empty
+func (p *Pool) startPoolMonitor() {
+	go func() {
+		ticker := time.NewTicker(100 * time.Millisecond)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-p.ctx.Done():
+				// Pool already shutting down
+				return
+			case <-ticker.C:
+				if p.registry.IsEmpty() {
+					fmt.Println("All URLs exhausted, terminating...")
+					p.cancel()
+					return
+				}
+			}
+		}
+	}()
 }
 
 // calculateStaggerDelay calculates the startup delay for a worker using the formula:
