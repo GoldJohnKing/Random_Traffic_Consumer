@@ -15,16 +15,17 @@ import (
 
 // Pool manages a pool of download workers
 type Pool struct {
-	workers  []*Worker
-	count    int
-	registry *URLRegistry
-	client   *http.Client
-	stats    *stats.Stats
-	limiter  *limiter.TokenBucket
-	dlConfig *config.DownloadConfig
-	wg       sync.WaitGroup
-	ctx      context.Context
-	cancel   context.CancelFunc
+	workers    []*Worker
+	count      int
+	registry   *URLRegistry
+	client     *http.Client
+	stats      *stats.Stats
+	limiter    *limiter.TokenBucket
+	dlConfig   *config.DownloadConfig
+	wg         sync.WaitGroup
+	ctx        context.Context
+	cancel     context.CancelFunc
+	configPath string // Path to config file for URL persistence
 }
 
 // NewPool creates a new worker pool
@@ -33,21 +34,23 @@ func NewPool(
 	httpClient *http.Client,
 	statsCollector *stats.Stats,
 	bwLimiter *limiter.TokenBucket,
+	configPath string,
 ) *Pool {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// Create URLRegistry with config URLs and retry count
-	registry := NewURLRegistry(cfg.URLs, cfg.Download.Retry, ctx)
+	// Create URLRegistry with config URLs, retry count, and config path
+	registry := NewURLRegistry(cfg.URLs, cfg.Download.Retry, ctx, configPath)
 
 	return &Pool{
-		count:    cfg.Download.Workers,
-		registry: registry,
-		client:   httpClient,
-		stats:    statsCollector,
-		limiter:  bwLimiter,
-		dlConfig: &cfg.Download,
-		ctx:      ctx,
-		cancel:   cancel,
+		count:      cfg.Download.Workers,
+		registry:   registry,
+		client:     httpClient,
+		stats:      statsCollector,
+		limiter:    bwLimiter,
+		dlConfig:   &cfg.Download,
+		ctx:        ctx,
+		cancel:     cancel,
+		configPath: configPath,
 	}
 }
 

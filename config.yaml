@@ -4,17 +4,17 @@
 # Download target URLs (CDN resources from lolicp.com for testing)
 urls:
   - "https://res.wx.qq.com/open/zh_CN/htmledition/res/dev/download/sdk/WeChatSDK1.7.5.zip"
-  - "https://yun.mcloud.139.com/mCloudPc/v832/mCloud_Setup-001.exe"
-  - "https://yun.mcloud.139.com/mCloudPc/v811/mCloud_Setup-001.exe"
+#   - "https://yun.mcloud.139.com/mCloudPc/v832/mCloud_Setup-001.exe"
+#   - "https://yun.mcloud.139.com/mCloudPc/v811/mCloud_Setup-001.exe"
   - "https://x19.gdl.netease.com/MCLauncherTool_0.1.4.50447.exe"
   - "https://sta-op.douyucdn.cn/dyadmin-ext/pkg/pc/DY_OBS_Studio_Ext/20221208103446325/DYOBSStudioExtension_1.0.2.3.exe"
-  - "https://picture.xianniu.com/pc/download/4.7.3.5/xianniusetup.4.7.3.5.exe"
-  - "https://yun.mcloud.139.com/hongseyunpan/2.43G.zip"
+#   - "https://picture.xianniu.com/pc/download/4.7.3.5/xianniusetup.4.7.3.5.exe"
+#   - "https://yun.mcloud.139.com/hongseyunpan/2.43G.zip"
   - "https://res.wx.qq.com/wxdoc/dist/assets/media/aes-sample.eae1f364.zip"
   - "https://s1.hdslb.com/bfs/game-static/web/caster/static/script/vue/da3f37d7fd8339357ed671a94941757e/st.zip"
   - "https://s3.hdslb.com/bfs/game-static/web/caster/static/script/vue/da3f37d7fd8339357ed671a94941757e/st.zip"
-  - "https://imeres.baidu.com/imeres/ime-res/guanwang/img/Ubuntu_Deepin-fcitx-baidupinyin-64.zip"
-  - "https://cnbj0.fds.api.xiaomi.com/miio.files/commonfile_zip_a348bd8c21030ba605d47331d4eb4663.zip"
+#   - "https://imeres.baidu.com/imeres/ime-res/guanwang/img/Ubuntu_Deepin-fcitx-baidupinyin-64.zip"
+#   - "https://cnbj0.fds.api.xiaomi.com/miio.files/commonfile_zip_a348bd8c21030ba605d47331d4eb4663.zip"
   - "https://activity.hdslb.com/blackboard/static/20210604/4d40bc4f98f94fbc71c235832ce3efd4/hJEhL6jGOY.zip"
 
 # Download settings

@@ -39,7 +39,7 @@ func main() {
 	httpClient := downloader.NewHTTPClient(&cfg.HTTP, cfg.Download.Timeout)
 
 	// Create worker pool
-	pool := downloader.NewPool(cfg, httpClient, statsCollector, bwLimiter)
+	pool := downloader.NewPool(cfg, httpClient, statsCollector, bwLimiter, *configPath)
 
 	// Create console formatter
 	formatter := ui.NewFormatter(statsCollector, cfg, bwLimiter)
